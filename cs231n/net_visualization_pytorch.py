@@ -34,7 +34,15 @@ def compute_saliency_maps(X, y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # Forward pass
+    scores = model(X)
+    # Compute loss
+    loss = torch.nn.functional.cross_entropy(scores, y)
+    # Backward pass
+    loss.backward()
+    # Compute saliency map
+    saliency, _ = torch.max(X.grad.data.abs(), dim=1)
+    saliency = saliency.squeeze()
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -76,7 +84,35 @@ def make_fooling_image(X, target_y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # Define max number of iterations
+    max_iter = 100
+
+    # Loop over the number of iterations
+    for i in range(max_iter) :
+        # Forward pass
+        y_pred = model(X_fooling)
+        
+        # Check if the model is fooled
+        if torch.argmax(y_pred).numpy() == target_y :
+            break
+
+        # Compute loss
+        score = y_pred[:,target_y].squeeze()
+
+        # Backward pass
+        score.backward()
+
+        # Update X_fooling
+        with torch.no_grad() :
+            X_grad = X_fooling.grad
+            X_fooling += learning_rate * (X_grad / torch.sum(X_grad**2))
+            X_fooling.grad.zero_()
+
+        # Print progress
+        print('Iteration %d/%d' % (i, max_iter))
+        print('Target class : %d' % (target_y))
+        print('Target class score : %f' % (score))
+        print('Predicted class : %d' % (torch.argmax(y_pred).numpy()))
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -94,7 +130,22 @@ def class_visualization_update_step(img, model, target_y, l2_reg, learning_rate)
     ########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # Forward pass
+    y_pred = model(img)
+    # Compute loss
+    score = y_pred[:,target_y].squeeze()
+    # Regularization
+    score -= l2_reg * torch.sum(img**2)
+    # Backward pass
+    score.backward()
+    # Update img
+    with torch.no_grad() :
+        # Update img
+        img += learning_rate * img.grad
+        # Regularization
+        img -= l2_reg * img
+        # Zero gradient
+        img.grad.zero_()
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ########################################################################
