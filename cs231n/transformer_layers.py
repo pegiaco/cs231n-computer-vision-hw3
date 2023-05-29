@@ -38,7 +38,10 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, embed_dim, 2) * (-math.log(10000.0) / embed_dim))
+        pe[:, :, 0::2] = torch.sin(position * div_term)
+        pe[:, :, 1::2] = torch.cos(position * div_term)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -70,7 +73,8 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        output = x + self.pe[:, :S, :]
+        output = self.dropout(output)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -165,7 +169,17 @@ class MultiHeadAttention(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        query_heads = self.query(query).reshape(N, S, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+        key_heads = self.key(key).reshape(N, T, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+        value_heads = self.value(value).reshape(N, T, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+
+        attn_scores = torch.matmul(query_heads, key_heads.transpose(-2,-1)) / math.sqrt(self.head_dim)
+        if attn_mask is not None:
+            attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+        attn_weights = torch.softmax(attn_scores, dim=-1)
+        attn_weights = self.attn_drop(attn_weights)
+        attn_output = torch.matmul(attn_weights, value_heads).permute(0, 2, 1, 3).reshape(N, S, E)
+        output = self.proj(attn_output)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

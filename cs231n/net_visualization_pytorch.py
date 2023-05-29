@@ -34,15 +34,10 @@ def compute_saliency_maps(X, y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    # Forward pass
-    scores = model(X)
-    # Compute loss
-    loss = torch.nn.functional.cross_entropy(scores, y)
-    # Backward pass
+    output = model(X)
+    loss = torch.sum(output.gather(1, y.view(-1, 1)))
     loss.backward()
-    # Compute saliency map
-    saliency, _ = torch.max(X.grad.data.abs(), dim=1)
-    saliency = saliency.squeeze()
+    saliency = X.grad.data.abs().max(dim=1)[0]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -130,22 +125,12 @@ def class_visualization_update_step(img, model, target_y, l2_reg, learning_rate)
     ########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    # Forward pass
-    y_pred = model(img)
-    # Compute loss
-    score = y_pred[:,target_y].squeeze()
-    # Regularization
-    score -= l2_reg * torch.sum(img**2)
-    # Backward pass
-    score.backward()
-    # Update img
-    with torch.no_grad() :
-        # Update img
-        img += learning_rate * img.grad
-        # Regularization
-        img -= l2_reg * img
-        # Zero gradient
-        img.grad.zero_()
+    output = model(img)
+    loss = output[0][target_y] - l2_reg * torch.square(torch.norm(img))
+    loss.backward()
+    grad = img.grad.data
+    img.data += learning_rate * grad
+    img.grad.data.zero_()
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ########################################################################
